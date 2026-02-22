@@ -4,6 +4,9 @@ import { useState } from "react";
 import SearchBar from "./searchbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 interface LinkResult {
   url: string;
@@ -31,10 +34,72 @@ function extractLinks(html: string, baseUrl: string): string[] {
 }
 
 type Filter = "all" | "broken" | "redirect" | "ok" | "unchecked";
+type ExportFormat = "json" | "csv" | "markdown";
+
+function downloadBlob(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportLinks(links: LinkResult[], healthScore: number, pagesCount: number, format: ExportFormat) {
+  const ts = new Date().toISOString().slice(0, 10);
+  const broken = links.filter((l) => l.category === "broken");
+  const redirects = links.filter((l) => l.category === "redirect");
+  const ok = links.filter((l) => l.category === "ok");
+  const unchecked = links.filter((l) => l.category === "unchecked");
+
+  if (format === "json") {
+    const report = {
+      date: ts,
+      healthScore,
+      pagesScanned: pagesCount,
+      summary: { total: links.length, broken: broken.length, redirects: redirects.length, ok: ok.length, unchecked: unchecked.length },
+      links,
+    };
+    downloadBlob(JSON.stringify(report, null, 2), `dead-link-report-${ts}.json`, "application/json");
+  } else if (format === "csv") {
+    const rows = [["Link URL", "Status", "Category", "Found On"]];
+    for (const l of links) {
+      rows.push([l.url, l.category === "unchecked" ? "N/A" : String(l.status), l.category, l.sourcePage]);
+    }
+    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    downloadBlob(csv, `dead-link-report-${ts}.csv`, "text/csv");
+  } else {
+    let md = `# Dead Link Report\n\n**Date:** ${ts}\n**Pages Scanned:** ${pagesCount}\n**Link Health:** ${healthScore}%\n\n`;
+    md += `| Metric | Count |\n|--------|-------|\n`;
+    md += `| Total Links | ${links.length} |\n`;
+    md += `| Broken | ${broken.length} |\n`;
+    md += `| Redirects | ${redirects.length} |\n`;
+    md += `| OK | ${ok.length} |\n`;
+    md += `| Not Crawled | ${unchecked.length} |\n\n`;
+    if (broken.length > 0) {
+      md += `## Broken Links\n\n| URL | Status | Found On |\n|-----|--------|----------|\n`;
+      for (const l of broken) md += `| ${l.url} | ${l.status} | ${l.sourcePage} |\n`;
+      md += "\n";
+    }
+    if (redirects.length > 0) {
+      md += `## Redirects\n\n| URL | Status | Found On |\n|-----|--------|----------|\n`;
+      for (const l of redirects) md += `| ${l.url} | ${l.status} | ${l.sourcePage} |\n`;
+      md += "\n";
+    }
+    if (unchecked.length > 0) {
+      md += `## Not Crawled (External)\n\n| URL | Found On |\n|-----|----------|\n`;
+      for (const l of unchecked) md += `| ${l.url} | ${l.sourcePage} |\n`;
+      md += "\n";
+    }
+    downloadBlob(md, `dead-link-report-${ts}.md`, "text/markdown");
+  }
+}
 
 export default function Checker() {
   const [data, setData] = useState<any[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("json");
 
   const pages = data || [];
   const crawledUrls = new Set(pages.map((p: any) => p?.url).filter(Boolean));
@@ -151,6 +216,28 @@ export default function Checker() {
                 </p>
               </div>
             )}
+
+            {/* Download Controls */}
+            <div className="flex items-center gap-2 mb-4">
+              <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as ExportFormat)}>
+                <SelectTrigger className="w-[130px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="json">JSON</SelectItem>
+                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="markdown">Markdown</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => exportLinks(allLinks, healthScore, pages.length, exportFormat)}>
+                Download All ({allLinks.length})
+              </Button>
+              {filter !== "all" && filtered.length > 0 && (
+                <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => exportLinks(filtered, healthScore, pages.length, exportFormat)}>
+                  Download Filtered ({filtered.length})
+                </Button>
+              )}
+            </div>
 
             {/* Filter Tabs */}
             <div className="flex gap-2 mb-4 flex-wrap">
