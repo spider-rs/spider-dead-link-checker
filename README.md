@@ -6,6 +6,8 @@ Crawl websites and find broken/dead links (404s, 500s, timeouts) using [Spider C
 
 **Live Demo:** [https://dead-link-checker.spider.cloud](https://dead-link-checker.spider.cloud)
 
+![Spider Dead Link Checker](./example.png)
+
 ## Features
 
 - Crawl any website using Spider Cloud API
