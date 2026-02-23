@@ -117,10 +117,32 @@ function exportLinks(links: LinkResult[], healthScore: number, pagesCount: numbe
   }
 }
 
+type SortKey = "url" | "status" | "sourcePage";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  return (
+    <span className={`inline-block ml-1 text-[10px] ${active ? "text-[#3bde77]" : "text-muted-foreground/40"}`}>
+      {active ? (dir === "asc" ? "▲" : "▼") : "⇅"}
+    </span>
+  );
+}
+
 export default function Checker() {
   const [data, setData] = useState<any[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("json");
+  const [sortKey, setSortKey] = useState<SortKey>("status");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
 
   const pages = data || [];
   const crawledUrls = new Set(pages.map((p: any) => p?.url).filter(Boolean));
@@ -151,7 +173,14 @@ export default function Checker() {
   const okLinks = allLinks.filter((l) => l.category === "ok");
   const unchecked = allLinks.filter((l) => l.category === "unchecked");
 
-  const filtered = filter === "all" ? allLinks : allLinks.filter((l) => l.category === filter);
+  const filteredUnsorted = filter === "all" ? allLinks : allLinks.filter((l) => l.category === filter);
+  const filtered = [...filteredUnsorted].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === "url") cmp = a.url.localeCompare(b.url);
+    else if (sortKey === "status") cmp = a.status - b.status;
+    else cmp = a.sourcePage.localeCompare(b.sourcePage);
+    return sortDir === "asc" ? cmp : -cmp;
+  });
   const healthScore = allLinks.length > 0
     ? Math.round(((okLinks.length + redirects.length) / Math.max(1, allLinks.length - unchecked.length)) * 100)
     : 0;
@@ -286,9 +315,15 @@ export default function Checker() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left p-3 font-medium">Link URL</th>
-                    <th className="text-center p-3 font-medium w-28">Status</th>
-                    <th className="text-left p-3 font-medium">Found On</th>
+                    <th className="text-left p-3 font-medium cursor-pointer hover:text-foreground transition-colors select-none" onClick={() => toggleSort("url")}>
+                      Link URL<SortIcon active={sortKey === "url"} dir={sortDir} />
+                    </th>
+                    <th className="text-center p-3 font-medium w-28 cursor-pointer hover:text-foreground transition-colors select-none" onClick={() => toggleSort("status")}>
+                      Status<SortIcon active={sortKey === "status"} dir={sortDir} />
+                    </th>
+                    <th className="text-left p-3 font-medium cursor-pointer hover:text-foreground transition-colors select-none" onClick={() => toggleSort("sourcePage")}>
+                      Found On<SortIcon active={sortKey === "sourcePage"} dir={sortDir} />
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
