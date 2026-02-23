@@ -12,9 +12,10 @@ Crawl websites and find broken/dead links (404s, 500s, timeouts) using [Spider C
 
 - Crawl any website using Spider Cloud API
 - Real-time JSONL streaming results
+- Automatic filtering of non-page asset URLs (fonts, CSS, JS, images, media, etc.) to reduce noise
+- Health score dashboard with broken, redirect, OK, and unchecked link counts
+- Export reports as JSON, CSV, or Markdown
 - Supabase authentication (GitHub & Discord)
-- Local IndexedDB storage for caching results
-- Dark theme matching spider.cloud branding
 - Configurable crawl settings (limit, format, request type)
 - Cross-app switcher to jump between all [Spider Cloud](https://spider.cloud) tools with the current URL pre-filled
 
