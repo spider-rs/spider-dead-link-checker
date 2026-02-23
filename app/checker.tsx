@@ -15,12 +15,33 @@ interface LinkResult {
   category: "broken" | "redirect" | "ok" | "unchecked";
 }
 
+const ASSET_EXTENSIONS = new Set([
+  ".woff", ".woff2", ".ttf", ".eot", ".otf",
+  ".css", ".js", ".mjs",
+  ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".ico",
+  ".mp4", ".mp3", ".webm",
+  ".pdf", ".zip", ".tar", ".gz",
+  ".xml", ".json",
+]);
+
+function isAssetUrl(href: string): boolean {
+  try {
+    const pathname = new URL(href, "https://x").pathname.toLowerCase();
+    return ASSET_EXTENSIONS.has(
+      pathname.slice(pathname.lastIndexOf("."))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function extractLinks(html: string, baseUrl: string): string[] {
   const links: string[] = [];
   const regex = /href=["']([^"']+)["']/gi;
   let match;
   while ((match = regex.exec(html)) !== null) {
     const href = match[1];
+    if (isAssetUrl(href)) continue;
     if (href.startsWith("http://") || href.startsWith("https://")) {
       links.push(href);
     } else if (href.startsWith("/")) {
